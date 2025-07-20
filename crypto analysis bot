@@ -1,0 +1,430 @@
+import React, { useState, useEffect } from 'react';
+import { Search, TrendingUp, Shield, Users, Code, AlertTriangle, CheckCircle, XCircle, Loader } from 'lucide-react';
+
+const CryptoAnalysisBot = () => {
+  const [selectedCoin, setSelectedCoin] = useState('');
+  const [analysis, setAnalysis] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [coinData, setCoinData] = useState({});
+  const [history, setHistory] = useState([]);
+
+  // Mock data for demonstration - in real app, this would come from APIs
+  const mockCoinData = {
+    'bitcoin': {
+      name: 'Bitcoin',
+      symbol: 'BTC',
+      price: 43250,
+      marketCap: 845000000000,
+      volume24h: 23400000000,
+      rank: 1,
+      totalSupply: 21000000,
+      circulatingSupply: 19600000,
+      githubCommits: 150,
+      developers: 890,
+      holders: 45000000,
+      exchanges: 250
+    },
+    'ethereum': {
+      name: 'Ethereum',
+      symbol: 'ETH',
+      price: 3200,
+      marketCap: 385000000000,
+      volume24h: 15600000000,
+      rank: 2,
+      totalSupply: null,
+      circulatingSupply: 120000000,
+      githubCommits: 320,
+      developers: 4200,
+      holders: 88000000,
+      exchanges: 280
+    },
+    'solana': {
+      name: 'Solana',
+      symbol: 'SOL',
+      price: 98,
+      marketCap: 43000000000,
+      volume24h: 2100000000,
+      rank: 5,
+      totalSupply: null,
+      circulatingSupply: 440000000,
+      githubCommits: 180,
+      developers: 1200,
+      holders: 15000000,
+      exchanges: 120
+    }
+  };
+
+  const evaluationCriteria = {
+    technology: {
+      weight: 0.15,
+      factors: ['problemStatement', 'innovation', 'scalability', 'consensus', 'interoperability']
+    },
+    team: {
+      weight: 0.10,
+      factors: ['founders', 'developers', 'advisory', 'community', 'execution']
+    },
+    tokenomics: {
+      weight: 0.15,
+      factors: ['supply', 'distribution', 'utility', 'inflation', 'staking']
+    },
+    adoption: {
+      weight: 0.15,
+      factors: ['activeUsers', 'volume', 'partnerships', 'dapps', 'geographic']
+    },
+    market: {
+      weight: 0.10,
+      factors: ['competition', 'marketShare', 'networkEffects', 'moats']
+    },
+    financial: {
+      weight: 0.20,
+      factors: ['valuation', 'liquidity', 'treasury', 'revenue', 'burn']
+    },
+    risk: {
+      weight: 0.15,
+      factors: ['regulatory', 'technical', 'security', 'centralization']
+    }
+  };
+
+  const runAnalysis = async (coinId) => {
+    setLoading(true);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const data = mockCoinData[coinId];
+    if (!data) {
+      setLoading(false);
+      return;
+    }
+
+    // Calculate scores based on mock data
+    const scores = calculateScores(data);
+    const finalScore = calculateFinalScore(scores);
+    
+    const analysisResult = {
+      coin: data,
+      scores,
+      finalScore,
+      recommendation: getRecommendation(finalScore),
+      risks: identifyRisks(scores),
+      strengths: identifyStrengths(scores),
+      timestamp: new Date().toISOString()
+    };
+
+    setAnalysis(analysisResult);
+    setHistory(prev => [analysisResult, ...prev.slice(0, 4)]);
+    setLoading(false);
+  };
+
+  const calculateScores = (data) => {
+    const scores = {};
+    
+    // Technology score (based on various factors)
+    scores.technology = Math.min(5, (
+      (data.githubCommits > 100 ? 5 : data.githubCommits / 20) +
+      (data.developers > 1000 ? 5 : data.developers / 200) +
+      4.2 // Base score for established coins
+    ) / 3);
+
+    // Team score
+    scores.team = Math.min(5, (
+      (data.developers > 500 ? 5 : data.developers / 100) +
+      4.0 + // Base team score
+      (data.githubCommits > 200 ? 1 : 0)
+    ) / 2);
+
+    // Tokenomics score
+    scores.tokenomics = data.totalSupply ? 4.5 : 4.0; // Fixed supply bonus
+
+    // Adoption score
+    scores.adoption = Math.min(5, (
+      (data.holders > 10000000 ? 5 : data.holders / 2000000) +
+      (data.exchanges > 100 ? 5 : data.exchanges / 20) +
+      (data.volume24h > 1000000000 ? 5 : data.volume24h / 200000000)
+    ) / 3);
+
+    // Market score
+    scores.market = Math.min(5, (
+      (data.rank <= 5 ? 5 : 6 - data.rank / 10) +
+      4.0 // Base market score
+    ) / 2);
+
+    // Financial score
+    scores.financial = Math.min(5, (
+      (data.volume24h / data.marketCap > 0.05 ? 5 : (data.volume24h / data.marketCap) * 100) +
+      (data.marketCap > 10000000000 ? 5 : data.marketCap / 2000000000) +
+      4.0
+    ) / 3);
+
+    // Risk score (higher is better - lower risk)
+    scores.risk = data.rank <= 10 ? 4.5 : 3.5;
+
+    return scores;
+  };
+
+  const calculateFinalScore = (scores) => {
+    let weightedSum = 0;
+    Object.keys(evaluationCriteria).forEach(category => {
+      weightedSum += scores[category] * evaluationCriteria[category].weight;
+    });
+    return Math.round(weightedSum * 100) / 100;
+  };
+
+  const getRecommendation = (score) => {
+    if (score >= 4.0) return { level: 'STRONG BUY', color: 'text-green-600', bg: 'bg-green-100' };
+    if (score >= 3.5) return { level: 'BUY', color: 'text-blue-600', bg: 'bg-blue-100' };
+    if (score >= 3.0) return { level: 'HOLD', color: 'text-yellow-600', bg: 'bg-yellow-100' };
+    if (score >= 2.5) return { level: 'AVOID', color: 'text-orange-600', bg: 'bg-orange-100' };
+    return { level: 'SELL', color: 'text-red-600', bg: 'bg-red-100' };
+  };
+
+  const identifyRisks = (scores) => {
+    const risks = [];
+    if (scores.risk < 4) risks.push('Regulatory uncertainty');
+    if (scores.technology < 4) risks.push('Technical challenges');
+    if (scores.adoption < 3.5) risks.push('Limited adoption');
+    if (scores.financial < 4) risks.push('Valuation concerns');
+    return risks;
+  };
+
+  const identifyStrengths = (scores) => {
+    const strengths = [];
+    if (scores.technology > 4) strengths.push('Strong technology');
+    if (scores.team > 4) strengths.push('Excellent team');
+    if (scores.adoption > 4) strengths.push('High adoption');
+    if (scores.market > 4) strengths.push('Market leader');
+    if (scores.financial > 4) strengths.push('Strong financials');
+    return strengths;
+  };
+
+  const ScoreCard = ({ title, score, icon: Icon }) => (
+    <div className="bg-white rounded-lg p-4 shadow-sm border">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Icon className="w-5 h-5 text-blue-600" />
+          <span className="font-medium text-gray-700">{title}</span>
+        </div>
+        <span className={`text-lg font-bold ${score >= 4 ? 'text-green-600' : score >= 3 ? 'text-yellow-600' : 'text-red-600'}`}>
+          {score.toFixed(1)}
+        </span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div 
+          className={`h-2 rounded-full ${score >= 4 ? 'bg-green-500' : score >= 3 ? 'bg-yellow-500' : 'bg-red-500'}`}
+          style={{ width: `${(score / 5) * 100}%` }}
+        ></div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Crypto Analysis Bot
+          </h1>
+          <p className="text-gray-600 text-lg">
+            Automated cryptocurrency evaluation using comprehensive analysis framework
+          </p>
+        </div>
+
+        {/* Search Section */}
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Cryptocurrency
+              </label>
+              <select
+                value={selectedCoin}
+                onChange={(e) => setSelectedCoin(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Choose a cryptocurrency...</option>
+                <option value="bitcoin">Bitcoin (BTC)</option>
+                <option value="ethereum">Ethereum (ETH)</option>
+                <option value="solana">Solana (SOL)</option>
+              </select>
+            </div>
+            <button
+              onClick={() => selectedCoin && runAnalysis(selectedCoin)}
+              disabled={!selectedCoin || loading}
+              className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5" />}
+              {loading ? 'Analyzing...' : 'Analyze'}
+            </button>
+          </div>
+        </div>
+
+        {/* Analysis Results */}
+        {analysis && (
+          <div className="space-y-8">
+            {/* Overview Card */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {analysis.coin.name} ({analysis.coin.symbol})
+                  </h2>
+                  <p className="text-gray-600">
+                    Rank #{analysis.coin.rank} • ${analysis.coin.price.toLocaleString()}
+                  </p>
+                </div>
+                <div className={`px-6 py-3 rounded-full ${analysis.recommendation.bg}`}>
+                  <span className={`text-lg font-bold ${analysis.recommendation.color}`}>
+                    {analysis.recommendation.level}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600 mb-1">
+                    {analysis.finalScore.toFixed(1)}/5.0
+                  </div>
+                  <div className="text-gray-600">Overall Score</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-1">
+                    ${(analysis.coin.marketCap / 1e9).toFixed(1)}B
+                  </div>
+                  <div className="text-gray-600">Market Cap</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600 mb-1">
+                    ${(analysis.coin.volume24h / 1e9).toFixed(1)}B
+                  </div>
+                  <div className="text-gray-600">24h Volume</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Score Breakdown */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-6">Detailed Scores</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <ScoreCard title="Technology" score={analysis.scores.technology} icon={Code} />
+                <ScoreCard title="Team" score={analysis.scores.team} icon={Users} />
+                <ScoreCard title="Tokenomics" score={analysis.scores.tokenomics} icon={TrendingUp} />
+                <ScoreCard title="Adoption" score={analysis.scores.adoption} icon={Users} />
+                <ScoreCard title="Market Position" score={analysis.scores.market} icon={TrendingUp} />
+                <ScoreCard title="Financials" score={analysis.scores.financial} icon={TrendingUp} />
+                <ScoreCard title="Risk Assessment" score={analysis.scores.risk} icon={Shield} />
+              </div>
+            </div>
+
+            {/* Strengths and Risks */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                  <h3 className="text-xl font-bold text-gray-900">Key Strengths</h3>
+                </div>
+                <ul className="space-y-2">
+                  {analysis.strengths.map((strength, index) => (
+                    <li key={index} className="flex items-center gap-2 text-gray-700">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      {strength}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                  <h3 className="text-xl font-bold text-gray-900">Risk Factors</h3>
+                </div>
+                <ul className="space-y-2">
+                  {analysis.risks.map((risk, index) => (
+                    <li key={index} className="flex items-center gap-2 text-gray-700">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      {risk}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Investment Recommendation */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-900 mb-4">Investment Guidance</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-2">Position Size</h4>
+                  <p className="text-gray-600">
+                    {analysis.finalScore >= 4 ? '5-15% of crypto portfolio' : 
+                     analysis.finalScore >= 3.5 ? '3-8% of crypto portfolio' : 
+                     analysis.finalScore >= 3 ? '1-5% of crypto portfolio' : 'Avoid investment'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-2">Entry Strategy</h4>
+                  <p className="text-gray-600">
+                    {analysis.finalScore >= 4 ? 'Dollar-cost average over 3-6 months' : 
+                     analysis.finalScore >= 3.5 ? 'Small initial position, monitor' : 
+                     'Wait for better opportunities'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-gray-700 mb-2">Time Horizon</h4>
+                  <p className="text-gray-600">
+                    {analysis.finalScore >= 4 ? 'Long-term hold (2+ years)' : 
+                     analysis.finalScore >= 3.5 ? 'Medium-term (6-18 months)' : 
+                     'Short-term trading only'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Analysis History */}
+        {history.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg p-6 mt-8">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Recent Analyses</h3>
+            <div className="space-y-3">
+              {history.map((item, index) => (
+                <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{item.coin.name}</span>
+                    <span className="text-gray-500">•</span>
+                    <span className="text-sm text-gray-600">
+                      {new Date(item.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-gray-900">{item.finalScore.toFixed(1)}/5</span>
+                    <span className={`px-3 py-1 rounded-full text-sm ${item.recommendation.bg} ${item.recommendation.color}`}>
+                      {item.recommendation.level}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Disclaimer */}
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mt-8">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-6 h-6 text-yellow-600 mt-1" />
+            <div>
+              <h4 className="font-semibold text-yellow-800 mb-2">Important Disclaimer</h4>
+              <p className="text-yellow-700 text-sm">
+                This analysis is for educational purposes only and should not be considered financial advice. 
+                Cryptocurrency investments are highly risky and volatile. Always do your own research and 
+                never invest more than you can afford to lose completely. Past performance does not guarantee future results.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default CryptoAnalysisBot;
