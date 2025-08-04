@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML App Development Bot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            width: 95%;
+            max-width: 1200px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            background: linear-gradient(45deg, #2c3e50, #3498db);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            padding: 2rem;
+            min-height: 600px;
+        }
+
+        .chat-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            border: 2px solid #e1e8ed;
+            border-radius: 15px;
+            overflow: hidden;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            max-height: 500px;
+        }
+
+        .chat-header {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            padding: 1rem;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            background: #f8fafc;
+            min-height: 300px;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            border-radius: 10px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .user-message {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            margin-left: 20%;
+            border-top-right-radius: 5px;
+        }
+
+        .bot-message {
+            background: #ffffff;
+            border: 1px solid #e1e8ed;
+            margin-right: 20%;
+            border-top-left-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .chat-input-container {
+            padding: 1rem;
+            background: white;
+            border-top: 1px solid #e1e8ed;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 2px solid #e1e8ed;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .send-btn {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+        }
+
+        .tools-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .quick-actions {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .quick-actions h3 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+
+        .action-btn {
+            padding: 1rem;
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            text-align: center;
+            transform: translateY(0);
+        }
+
+        .action-btn:nth-child(2) { background: linear-gradient(45deg, #f39c12, #e67e22); }
+        .action-btn:nth-child(3) { background: linear-gradient(45deg, #9b59b6, #8e44ad); }
+        .action-btn:nth-child(4) { background: linear-gradient(45deg, #1abc9c, #16a085); }
+        .action-btn:nth-child(5) { background: linear-gradient(45deg, #34495e, #2c3e50); }
+        .action-btn:nth-child(6) { background: linear-gradient(45deg, #e67e22, #d35400); }
+
+        .action-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .code-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 15px;
+            padding: 1.5rem;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #444;
+        }
+
+        .code-title {
+            color: #61dafb;
+            font-weight: bold;
+        }
+
+        .copy-btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #005999;
+        }
+
+        .syntax-highlight {
+            color: #ce9178;
+        }
+
+        .keyword {
+            color: #569cd6;
+        }
+
+        .string {
+            color: #ce9178;
+        }
+
+        .comment {
+            color: #6a9955;
+            font-style: italic;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .action-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 HTML App Development Bot</h1>
+            <p>Your AI-powered assistant for building amazing web applications</p>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-section">
+                <div class="chat-container">
+                    <div class="chat-header">
+                        💬 Chat with Development Bot
+                    </div>
+                    <div class="chat-messages" id="chatMessages">
+                        <div class="message bot-message">
+                            <strong>🤖 Dev Bot:</strong> Hello! I'm your HTML App Development Bot. I can help you:
+                            <ul style="margin-top: 10px; margin-left: 20px;">
+                                <li>Generate HTML, CSS, and JavaScript code</li>
+                                <li>Create project structures</li>
+                                <li>Provide development guidance</li>
+                                <li>Debug and optimize code</li>
+                                <li>Suggest best practices</li>
+                            </ul>
+                            What would you like to build today?
+                        </div>
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="Ask me anything about app development..." onkeypress="handleKeyPress(event)">
+                        <button class="send-btn" onclick="sendMessage()">Send</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tools-section">
+                <div class="quick-actions">
+                    <h3>🚀 Quick Actions</h3>
+                    <div class="action-grid">
+                        <button class="action-btn" onclick="generateTemplate('landing')">Landing Page</button>
+                        <button class="action-btn" onclick="generateTemplate('dashboard')">Dashboard</button>
+                        <button class="action-btn" onclick="generateTemplate('portfolio')">Portfolio</button>
+                        <button class="action-btn" onclick="generateTemplate('ecommerce')">E-commerce</button>
+                        <button class="action-btn" onclick="generateTemplate('blog')">Blog Layout</button>
+                        <button class="action-btn" onclick="generateTemplate('form')">Contact Form</button>
+                    </div>
+                </div>
+
+                <div class="code-output" id="codeOutput">
+                    <div class="code-header">
+                        <div class="code-title">📝 Generated Code</div>
+                        <button class="copy-btn" onclick="copyCode()">Copy Code</button>
+                    </div>
+                    <div id="codeContent">
+                        <span class="comment">// Your generated code will appear here...</span><br>
+                        <span class="comment">// Click on quick actions or chat with the bot to get started!</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCode = '';
+
+        const templates = {
+            landing: {
+                name: 'Modern Landing Page',
+                code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Landing Page</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Arial', sans-serif; line-height: 1.6; }
+        
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-align: center;
+            padding: 100px 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            animation: fadeInUp 1s ease-out;
+        }
+        
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            animation: fadeInUp 1s ease-out 0.2s both;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background: #ff6b6b;
+            color: white;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: transform 0.3s ease;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <section class="hero">
+        <h1>Welcome to the Future</h1>
+        <p>Build amazing web applications with modern design and cutting-edge technology</p>
+        <a href="#" class="cta-button">Get Started Today</a>
+    </section>
+</body>
+</html>`
+            },
+            dashboard: {
+                name: 'Admin Dashboard',
+                code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 250px 1fr;
+            min-height: 100vh;
+        }
+        
+        .sidebar {
+            background: #2c3e50;
+            color: white;
+            padding: 2rem 1rem;
+        }
+        
+        .main-content {
+            padding: 2rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="sidebar">
+            <h2>Dashboard</h2>
+            <nav>
+                <ul style="list-style: none; margin-top: 2rem;">
+                    <li style="margin-bottom: 1rem;"><a href="#" style="color: white; text-decoration: none;">📊 Analytics</a></li>
+                    <li style="margin-bottom: 1rem;"><a href="#" style="color: white; text-decoration: none;">👥 Users</a></li>
+                    <li style="margin-bottom: 1rem;"><a href="#" style="color: white; text-decoration: none;">📝 Content</a></li>
+                    <li style="margin-bottom: 1rem;"><a href="#" style="color: white; text-decoration: none;">⚙️ Settings</a></li>
+                </ul>
+            </nav>
+        </div>
+        <div class="main-content">
+            <h1>Dashboard Overview</h1>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">1,234</div>
+                    <div>Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">5,678</div>
+                    <div>Page Views</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">89%</div>
+                    <div>Conversion Rate</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`
+            },
+            portfolio: {
+                name: 'Portfolio Website',
+                code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Creative Portfolio</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Georgia', serif; line-height: 1.6; color: #333; }
+        
+        .header {
+            background: #1a1a1a;
+            color: white;
+            text-align: center;
+            padding: 4rem 2rem;
+        }
+        
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+        }
+        
+        .tagline {
+            font-size: 1.2rem;
+            color: #ccc;
+            font-style: italic;
+        }
+        
+        .portfolio-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            padding: 4rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .portfolio-item {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .portfolio-item:hover {
+            transform: translateY(-10px);
+        }
+        
+        .item-image {
+            height: 200px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        .item-content {
+            padding: 1.5rem;
+        }
+        
+        .item-title {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            color: #1a1a1a;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Creative Portfolio</h1>
+        <p class="tagline">Bringing ideas to life through design & code</p>
+    </header>
+    
+    <section class="portfolio-grid">
+        <div class="portfolio-item">
+            <div class="item-image">Project 1</div>
+            <div class="item-content">
+                <h3 class="item-title">Modern Web App</h3>
+                <p>A responsive web application built with modern technologies.</p>
+            </div>
+        </div>
+        <div class="portfolio-item">
+            <div class="item-image">Project 2</div>
+            <div class="item-content">
+                <h3 class="item-title">E-commerce Platform</h3>
+                <p>Full-stack e-commerce solution with payment integration.</p>
+            </div>
+        </div>
+        <div class="portfolio-item">
+            <div class="item-image">Project 3</div>
+            <div class="item-content">
+                <h3 class="item-title">Mobile App Design</h3>
+                <p>UI/UX design for a revolutionary mobile application.</p>
+            </div>
+        </div>
+    </section>
+</body>
+</html>`
+            },
+            ecommerce: {
+                name: 'E-commerce Product Page',
+                code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Store</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Arial', sans-serif; }
+        
+        .product-page {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .product-image {
+            height: 500px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+        }
+        
+        .product-info h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: #2c3e50;
+        }
+        
+        .price {
+            font-size: 2rem;
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .description {
+            color: #666;
+            line-height: 1.8;
+            margin-bottom: 2rem;
+        }
+        
+        .add-to-cart {
+            background: #27ae60;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .add-to-cart:hover {
+            background: #219a52;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+        
+        .features {
+            margin-top: 2rem;
+        }
+        
+        .features ul {
+            list-style: none;
+        }
+        
+        .features li {
+            padding: 0.5rem 0;
+            color: #555;
+        }
+        
+        .features li:before {
+            content: "✓ ";
+            color: #27ae60;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="product-page">
+        <div class="product-image">
+            Premium Product Image
+        </div>
+        <div class="product-info">
+            <h1>Premium Product</h1>
+            <div class="price">$299.99</div>
+            <div class="description">
+                Experience luxury and quality with our premium product. Crafted with attention to detail 
+                and built to last, this item represents the perfect blend of style and functionality.
+            </div>
+            <button class="add-to-cart">Add to Cart</button>
+            <div class="features">
+                <h3>Key Features:</h3>
+                <ul>
+                    <li>Premium materials and construction</li>
+                    <li>Modern, elegant design</li>
+                    <li>30-day money-back guarantee</li>
+                    <li>Free shipping worldwide</li>
+                    <li>24/7 customer support</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`
+            },
+            blog: {
+                name: 'Blog Layout',
+                code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Blog</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Georgia', serif; line-height: 1.6; color: #333; background: #f8f9fa; }
+        
+        .blog-header {
+            background: white;
+            padding: 2rem 0;
+            border-bottom: 1px solid #eee;
+            text-align: center;
+        }
+        
+        .blog-title {
+            font-size: 2.5rem;
+            color: #2c3e50;
+            margin-bottom: 0.5rem;
+        }
+        
+        .blog-subtitle {
+            color: #666;
+            font-style: italic;
+        }
+        
+        .blog-container {
+            max-width: 800px;
+            margin: 3rem auto;
+            padding: 0 2rem;
+        }
+        
+        .blog-post {
+            background: white;
+            margin-bottom: 3rem;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        .post-header {
+            height: 250px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+        
+        .post-content {
+            padding: 2rem;
+        }
+        
+        .post-title {
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+        
+        .post-meta {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .post-excerpt {
+            color: #555;
+            line-height: 1.8;
+        }
+        
+        .read-more {
+            display: inline-block;
+            margin-top: 1rem;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        
+        .read-more:hover {
+            color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <header class="blog-header">
+        <h1 class="blog-title">Tech Insights</h1>
+        <p class="blog-subtitle">Exploring the latest in technology and development</p>
+    </header>
+    
+    <main class="blog-container">
+        <article class="blog-post">
+            <div class="post-header">Featured Image</div>
+            <div class="post-content">
+                <h2 class="post-title">The Future of Web Development</h2>
+                <div class="post-meta">Published on March 15, 2024 by Tech Writer</div>
+                <p class="post-excerpt">
+                    Discover the emerging trends and technologies that are shaping the future of web development. 
+                    From AI-powered tools to new frameworks, learn what's coming next in our industry.
+                </p>
+                <a href="#" class="read-more">Read More →</a>
+            </div>
+        </article>
+        
+        <article class="blog-post">
+            <div class="post-header">Featured Image</div>
+            <div class="post-content">
+                <h2 class="post-title">Building Responsive Websites</h2>
+                <div class="post-meta">Published on March 10, 2024 by Design Expert</div>
+                <p class="post-excerpt">
+                    Learn the best practices for creating websites that look great on all devices. 
+                    We'll cover CSS Grid, Flexbox, and modern responsive design techniques.
+                </p>
+                <a href="#" class="read-more">Read More →</a>
+            </div>
+        </article>
+    </main>
+</body>
+</html>`
+            },
+            form: {
+                name: 'Contact Form',
+                code: `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Form</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .form-container {
+            background: white;
+            padding: 3rem;
+            border-radius: 20px;
+            box-shadow:
