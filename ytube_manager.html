@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Channel Manager</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: #0B0B0F; }
+    #root { min-height: 100vh; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #0B0B0F; }
+    ::-webkit-scrollbar-thumb { background: #2A2A3A; border-radius: 2px; }
+    input::placeholder { color: #333 !important; }
+    a:hover { opacity: 0.8; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.35s ease both; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useCallback } = React;
+    const API = "https://www.googleapis.com/youtube/v3";
+
+    /* ── helpers ── */
+    const fmt = n => {
+      if (!n) return "0";
+      n = parseInt(n);
+      if (n >= 1_000_000) return (n/1_000_000).toFixed(1)+"M";
+      if (n >= 1_000)     return (n/1_000).toFixed(1)+"K";
+      return n.toString();
+    };
+    const ago = iso => {
+      const d = Math.floor((Date.now() - new Date(iso)) / 86400000);
+      if (d === 0) return "Today";
+      if (d === 1) return "Yesterday";
+      if (d < 30)  return `${d}d ago`;
+      if (d < 365) return `${Math.floor(d/30)}mo ago`;
+      return `${Math.floor(d/365)}y ago`;
+    };
+    const dur = iso => {
+      if (!iso) return "";
+      const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!m) return "";
+      const [,h,min,s] = m;
+      return h ? `${h}:${String(min||0).padStart(2,"0")}:${String(s||0).padStart(2,"0")}`
+               : `${min||0}:${String(s||0).padStart(2,"0")}`;
+    };
+
+    /* ── App ── */
+    function App() {
+      const [inputKey,    setInputKey]    = useState("");
+      const [channelIdIn, setChannelIdIn] = useState("");
+      const [step,        setStep]        = useState("key");   // key | id | dashboard
+      const [channel,     setChannel]     = useState(null);
+      const [videos,      setVideos]      = useState([]);
+      const [tab,         setTab]         = useState("overview");
+      const [loading,     setLoading]     = useState(false);
+      const [error,       setError]       = useState("");
+      const [search,      setSearch]      = useState("");
+      const [selVideo,    setSelVideo]    = useState(null);
+      const [note,        setNote]        = useState(true);
+      const [savedKey,    setSavedKey]    = useState("");
+
+      /* fetch helpers */
+      const fetchVideos = async (playlistId, key) => {
+        const r1 = await fetch(`${API}/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=24&key=${key}`);
+        const d1 = await r1.json();
+        if (d1.error) throw new Error(d1.error.message);
+        const ids = (d1.items||[]).map(i=>i.contentDetails.videoId).join(",");
+        if (!ids) return [];
+        const r2 = await fetch(`${API}/videos?part=snippet,statistics,contentDetails&id=${ids}&key=${key}`);
+        const d2 = await r2.json();
+        if (d2.error) throw new Error(d2.error.message);
+        return d2.items || [];
+      };
+
+      const loadChannel = async (ch, key) => {
+        const uploadsId = ch.contentDetails?.relatedPlaylists?.uploads;
+        const vids = uploadsId ? await fetchVideos(uploadsId, key) : [];
+        setChannel(ch);
+        setVideos(vids);
+        setSavedKey(key);
+        setStep("dashboard");
+      };
+
+      /* connect flow */
+      const handleKey = () => { if (inputKey.trim()) { setError(""); setStep("id"); } };
+
+      const handleLoad = async () => {
+        const key = inputKey.trim();
+        const cid = channelIdIn.trim();
+        if (!cid) { setError("Please enter your Channel ID."); return; }
+        setLoading(true); setError("");
+        try {
+          const res  = await fetch(`${API}/channels?part=snippet,statistics,contentDetails&id=${cid}&key=${key}`);
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message);
+          const ch = data.items?.[0];
+          if (!ch) throw new Error("Channel not found — double-check your Channel ID.");
+          await loadChannel(ch, key);
+        } catch(e) { setError(e.message); }
+        finally    { setLoading(false); }
+      };
+
+      const disconnect = () => {
+        setChannel(null); setVideos([]); setSavedKey(""); setInputKey(""); setChannelIdIn("");
+        setStep("key"); setTab("overview"); setNote(true);
+      };
+
+      /* ── CONNECT SCREENS ── */
+      if (step !== "dashboard") return (
+        <div style={{minHeight:"100vh",background:"#0B0B0F",display:"flex",alignItems:"center",justifyContent:"center",padding:"24px",fontFamily:"Georgia,serif",color:"#E0E0E0"}}>
+          <div className="fade-in" style={{background:"#111116",border:"1px solid #222",borderRadius:"8px",padding:"40px 36px",maxWidth:"460px",width:"100%",textAlign:"center"}}>
+
+            {/* logo */}
+            <div style={{fontSize:"44px",color:"#FF4E4E",marginBottom:"10px",textShadow:"0 0 24px #FF4E4E88"}}>▶</div>
+            <h1 style={{fontSize:"22px",fontWeight:"700",fontStyle:"italic",marginBottom:"6px"}}>YouTube Channel Manager</h1>
+            <p style={{fontSize:"12px",color:"#555",marginBottom:"32px",letterSpacing:"1px"}}>CONNECT VIA YOUTUBE DATA API v3</p>
+
+            {step === "key" && <>
+              <input
+                style={iStyle}
+                type="password"
+                placeholder="Paste your API key…"
+                value={inputKey}
+                onChange={e=>setInputKey(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&handleKey()}
+              />
+              <button style={btnStyle} onClick={handleKey} disabled={!inputKey.trim()}>Continue →</button>
+            </>}
+
+            {step === "id" && <>
+              <p style={{fontSize:"12px",color:"#888",marginBottom:"14px",lineHeight:1.7}}>
+                Enter your <strong style={{color:"#E0E0E0"}}>Channel ID</strong><br/>
+                <span style={{color:"#FF4E4E",fontSize:"11px"}}>YouTube → profile picture → Settings → Advanced settings</span>
+              </p>
+              <input
+                style={iStyle}
+                placeholder="UCxxxxxxxxxxxxxxxxxxxxxx"
+                value={channelIdIn}
+                onChange={e=>setChannelIdIn(e.target.value)}
+                onKeyDown={e=>e.key==="Enter"&&handleLoad()}
+                autoFocus
+              />
+              <button style={btnStyle} onClick={handleLoad} disabled={loading||!channelIdIn.trim()}>
+                {loading ? <span style={{display:"inline-block",width:"14px",height:"14px",border:"2px solid #fff3",borderTop:"2px solid #fff",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}></span> : "Load Channel →"}
+              </button>
+              <button onClick={()=>{setStep("key");setError("");}} style={{background:"none",border:"none",color:"#444",fontSize:"11px",cursor:"pointer",marginTop:"6px"}}>← Back</button>
+            </>}
+
+            {error && <p style={{color:"#FF6B6B",fontSize:"12px",marginTop:"12px",lineHeight:1.6,background:"#1A0A0A",padding:"10px",borderRadius:"4px"}}>{error}</p>}
+
+            <div style={{marginTop:"24px",background:"#0D0D14",border:"1px solid #1E1E2E",borderRadius:"4px",padding:"14px",textAlign:"left"}}>
+              <p style={{fontSize:"11px",color:"#555",marginBottom:"6px",lineHeight:1.6}}>🔑 Your key is used only in-browser — never stored on any server.</p>
+              <p style={{fontSize:"11px",color:"#555",lineHeight:1.6}}>📌 Get a free key: <span style={{color:"#FF4E4E"}}>console.cloud.google.com → YouTube Data API v3 → Credentials</span></p>
+            </div>
+          </div>
+        </div>
+      );
+
+      /* ── DASHBOARD ── */
+      const stats   = channel.statistics || {};
+      const snippet = channel.snippet    || {};
+      const filtered = videos.filter(v=>v.snippet?.title?.toLowerCase().includes(search.toLowerCase()));
+      const topVids  = [...videos].sort((a,b)=>parseInt(b.statistics?.viewCount||0)-parseInt(a.statistics?.viewCount||0)).slice(0,5);
+      const totalViews = videos.reduce((s,v)=>s+parseInt(v.statistics?.viewCount||0),0);
+      const avgLikes   = videos.length ? Math.round(videos.reduce((s,v)=>s+parseInt(v.statistics?.likeCount||0),0)/videos.length) : 0;
+      const maxViews   = Math.max(...videos.map(v=>parseInt(v.statistics?.viewCount||0)),1);
+
+      return (
+        <div style={{minHeight:"100vh",background:"#0B0B0F",color:"#E0E0E0",fontFamily:"Georgia,serif"}} className="fade-in">
+
+          {/* topbar */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 24px",borderBottom:"1px solid #1A1A24",background:"#0E0E14",flexWrap:"wrap",gap:"10px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:"12px"}}>
+              {snippet.thumbnails?.default?.url && <img src={snippet.thumbnails.default.url} alt="" style={{width:"38px",height:"38px",borderRadius:"50%",border:"2px solid #FF4E4E"}}/>}
+              <div>
+                <div style={{fontSize:"15px",fontWeight:"700",fontStyle:"italic"}}>{snippet.title}</div>
+                <div style={{fontSize:"11px",color:"#555"}}>{snippet.customUrl || "youtube.com"}</div>
+              </div>
+            </div>
+            <button onClick={disconnect} style={{background:"transparent",border:"1px solid #2A2A3A",color:"#555",padding:"6px 14px",borderRadius:"4px",cursor:"pointer",fontSize:"11px",fontFamily:"'Courier New',monospace"}}>✕ Disconnect</button>
+          </div>
+
+          {/* stats bar */}
+          <div style={{display:"flex",gap:"1px",background:"#1A1A24",borderBottom:"1px solid #1A1A24",flexWrap:"wrap"}}>
+            {[
+              {label:"Subscribers",   val:fmt(stats.subscriberCount), c:"#FF4E4E"},
+              {label:"Total Views",   val:fmt(stats.viewCount),        c:"#FFB347"},
+              {label:"Videos",        val:fmt(stats.videoCount),       c:"#4ECAFF"},
+              {label:"Avg Likes",     val:fmt(avgLikes),               c:"#7DFF9B"},
+              {label:"Recent Views",  val:fmt(totalViews),             c:"#C084FC"},
+            ].map(s=>(
+              <div key={s.label} style={{flex:"1 1 110px",background:"#0E0E14",padding:"16px 18px",textAlign:"center"}}>
+                <div style={{fontSize:"clamp(18px,3vw,24px)",fontWeight:"900",fontStyle:"italic",color:s.c}}>{s.val}</div>
+                <div style={{fontSize:"9px",color:"#555",letterSpacing:"1.5px",marginTop:"4px",textTransform:"uppercase"}}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* info notice */}
+          {note && (
+            <div style={{background:"#141420",borderBottom:"1px solid #1E1E2E",padding:"9px 24px",fontSize:"11px",color:"#666",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span>ℹ️ Revenue, CTR & impressions require YouTube Studio OAuth. Showing all public stats available via API key.</span>
+              <span onClick={()=>setNote(false)} style={{cursor:"pointer",marginLeft:"12px",opacity:.5}}>✕</span>
+            </div>
+          )}
+
+          {/* tabs */}
+          <div style={{display:"flex",borderBottom:"1px solid #1A1A24",padding:"0 20px",overflowX:"auto"}}>
+            {[["overview","📊 Overview"],["videos","🎬 All Videos"],["top5","🏆 Top 5"]].map(([t,l])=>(
+              <button key={t} onClick={()=>setTab(t)} style={{background:"transparent",border:"none",borderBottom:tab===t?"2px solid #FF4E4E":"2px solid transparent",color:tab===t?"#E0E0E0":"#444",padding:"13px 20px",cursor:"pointer",fontSize:"11px",letterSpacing:"1px",fontFamily:"'Courier New',monospace",whiteSpace:"nowrap",transition:"all .2s"}}>{l}</button>
+            ))}
+          </div>
+
+          {/* ── OVERVIEW ── */}
+          {tab==="overview" && (
+            <div style={{padding:"24px",maxWidth:"900px"}} className="fade-in">
+              <div style={secTitle}>Channel Info</div>
+              <div style={{display:"grid",gap:"10px",marginBottom:"28px"}}>
+                {[
+                  ["Description", snippet.description?.slice(0,220)||(snippet.description?.length>220?"…":"")  || "—"],
+                  ["Country",     snippet.country || "—"],
+                  ["Created",     snippet.publishedAt ? new Date(snippet.publishedAt).toDateString() : "—"],
+                  ["Hidden Subs", stats.hiddenSubscriberCount ? "Yes" : "No"],
+                ].map(([k,v])=>(
+                  <div key={k} style={{display:"flex",gap:"12px",borderBottom:"1px solid #15151F",paddingBottom:"10px"}}>
+                    <span style={{fontSize:"11px",color:"#555",minWidth:"100px",letterSpacing:"1px"}}>{k}</span>
+                    <span style={{fontSize:"12px",color:"#CCC",lineHeight:1.6}}>{v}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={secTitle}>Recent Upload Performance (views)</div>
+              {videos.slice(0,8).map(v=>{
+                const pct = Math.round((parseInt(v.statistics?.viewCount||0)/maxViews)*100);
+                return (
+                  <div key={v.id} style={{display:"flex",alignItems:"center",gap:"12px",marginBottom:"10px"}}>
+                    <div style={{fontSize:"11px",color:"#888",width:"clamp(120px,30%,220px)",flexShrink:0,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v.snippet?.title}</div>
+                    <div style={{flex:1,height:"6px",background:"#1A1A24",borderRadius:"3px",overflow:"hidden"}}>
+                      <div style={{width:`${pct}%`,height:"100%",background:"linear-gradient(90deg,#FF4E4E,#FFB347)",borderRadius:"3px",transition:"width .6s ease"}}/>
+                    </div>
+                    <div style={{fontSize:"11px",color:"#555",minWidth:"72px",textAlign:"right"}}>{fmt(v.statistics?.viewCount)}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── ALL VIDEOS ── */}
+          {tab==="videos" && (
+            <div style={{padding:"24px"}} className="fade-in">
+              <input style={{...iStyle,maxWidth:"340px",marginBottom:"20px"}} placeholder="🔍  Search videos…" value={search} onChange={e=>setSearch(e.target.value)}/>
+              {filtered.length===0 && <p style={{color:"#444",fontSize:"13px"}}>No videos found.</p>}
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:"16px"}}>
+                {filtered.map(v=>{
+                  const open = selVideo===v.id;
+                  return (
+                    <div key={v.id} onClick={()=>setSelVideo(open?null:v.id)}
+                      style={{background:"#111116",border:`1px solid ${open?"#FF4E4E44":"#1A1A24"}`,borderRadius:"6px",overflow:"hidden",cursor:"pointer",transition:"border-color .2s"}}>
+                      <div style={{position:"relative"}}>
+                        <img src={v.snippet?.thumbnails?.medium?.url||v.snippet?.thumbnails?.default?.url} alt="" style={{width:"100%",aspectRatio:"16/9",objectFit:"cover",display:"block"}}/>
+                        <span style={{position:"absolute",bottom:"6px",right:"6px",background:"rgba(0,0,0,.82)",color:"#FFF",fontSize:"10px",padding:"2px 6px",borderRadius:"2px"}}>{dur(v.contentDetails?.duration)}</span>
+                      </div>
+                      <div style={{padding:"12px"}}>
+                        <div style={{fontSize:"13px",fontWeight:"600",lineHeight:1.4,marginBottom:"6px",fontStyle:"italic"}}>{v.snippet?.title}</div>
+                        <div style={{fontSize:"11px",color:"#555",display:"flex",gap:"6px",marginBottom:"8px"}}>
+                          <span>{fmt(v.statistics?.viewCount)} views</span><span>·</span><span>{ago(v.snippet?.publishedAt)}</span>
+                        </div>
+                        <div style={{display:"flex",gap:"8px"}}>
+                          <span style={{fontSize:"10px",background:"#1A1A24",padding:"3px 8px",borderRadius:"10px",color:"#888"}}>👍 {fmt(v.statistics?.likeCount)}</span>
+                          <span style={{fontSize:"10px",background:"#1A1A24",padding:"3px 8px",borderRadius:"10px",color:"#888"}}>💬 {fmt(v.statistics?.commentCount)}</span>
+                        </div>
+                        {open && (
+                          <div style={{marginTop:"10px",borderTop:"1px solid #1A1A24",paddingTop:"10px"}}>
+                            <p style={{fontSize:"11px",color:"#666",lineHeight:1.6,marginBottom:"8px"}}>{v.snippet?.description?.slice(0,280)}{v.snippet?.description?.length>280?"…":""}</p>
+                            <a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank" rel="noreferrer"
+                              style={{color:"#FF4E4E",fontSize:"11px",textDecoration:"none",letterSpacing:"1px"}}
+                              onClick={e=>e.stopPropagation()}>Watch on YouTube ↗</a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── TOP 5 ── */}
+          {tab==="top5" && (
+            <div style={{padding:"24px",maxWidth:"860px"}} className="fade-in">
+              <div style={secTitle}>Top Performing Videos — by Views</div>
+              {topVids.map((v,i)=>(
+                <div key={v.id} style={{display:"flex",alignItems:"center",gap:"14px",background:"#111116",border:"1px solid #1A1A24",borderRadius:"6px",padding:"14px",marginBottom:"10px"}}>
+                  <div style={{fontSize:"22px",minWidth:"32px",textAlign:"center"}}>{"🥇🥈🥉".split("")[i] || (i+1)}</div>
+                  <img src={v.snippet?.thumbnails?.default?.url} alt="" style={{width:"80px",height:"45px",objectFit:"cover",borderRadius:"3px",flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:"13px",fontWeight:"600",fontStyle:"italic",marginBottom:"6px",lineHeight:1.4,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{v.snippet?.title}</div>
+                    <div style={{fontSize:"11px",color:"#666",display:"flex",gap:"8px",flexWrap:"wrap"}}>
+                      <span style={{color:"#FFB347"}}>{fmt(v.statistics?.viewCount)} views</span>
+                      <span>·</span><span>👍 {fmt(v.statistics?.likeCount)}</span>
+                      <span>·</span><span>💬 {fmt(v.statistics?.commentCount)}</span>
+                      <span>·</span><span>{ago(v.snippet?.publishedAt)}</span>
+                    </div>
+                  </div>
+                  <a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank" rel="noreferrer"
+                    style={{color:"#FF4E4E",fontSize:"16px",textDecoration:"none",flexShrink:0}}>↗</a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    /* shared micro-styles */
+    const iStyle = {width:"100%",background:"#0B0B0F",border:"1px solid #2A2A3A",borderRadius:"4px",color:"#E0E0E0",padding:"12px 14px",fontSize:"13px",marginBottom:"12px",fontFamily:"'Courier New',monospace",outline:"none",display:"block"};
+    const btnStyle = {width:"100%",background:"#FF4E4E",border:"none",borderRadius:"4px",color:"#fff",padding:"13px",fontSize:"14px",fontWeight:"700",cursor:"pointer",letterSpacing:"1px",marginBottom:"8px",display:"flex",alignItems:"center",justifyContent:"center",gap:"8px"};
+    const secTitle = {fontSize:"10px",color:"#555",letterSpacing:"3px",textTransform:"uppercase",marginBottom:"16px",marginTop:"8px"};
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+  </script>
+</body>
+</html>
